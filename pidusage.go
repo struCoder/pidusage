@@ -1,7 +1,6 @@
-package main
+package pidusage
 
 import (
-	"fmt"
 	"io/ioutil"
 	"math"
 	"os/exec"
@@ -28,34 +27,37 @@ type Stat struct {
 	uptime float64
 }
 
-// type fn func(int) *SysInfo
+type fn func(int) *SysInfo
 
-// var fnMap map[string]fn
+var fnMap map[string]fn
 var platform string
 var history map[int]Stat
+var eol string
 
-// func wrapper(statType string) func(pid int) *SysInfo {
-// 	return func(pid int) *SysInfo {
-// 		return stat(pid, statType)
-// 	}
-// }
+func wrapper(statType string) func(pid int) *SysInfo {
+	return func(pid int) *SysInfo {
+		return stat(pid, statType)
+	}
+}
 func init() {
 	platform = runtime.GOOS
-	if strings.Contains(platform, "win") {
+	eol = "\n"
+	if strings.Index(platform, "win") == 0 {
 		platform = "win"
+		eol = "\r\n"
 	}
 	history = make(map[int]Stat)
-	// fnMap = make(map[string]fn)
-	// fnMap["darwin"] = wrapper("ps")
-	// fnMap["sunos"] = wrapper("ps")
-	// fnMap["freebsd"] = wrapper("ps")
-	// fnMap["aix"] = wrapper("ps")
-	// fnMap["linux"] = wrapper("proc")
-	// fnMap["netbsd"] = wrapper("proc")
-	// fnMap["win"] = wrapper("win")
+	fnMap = make(map[string]fn)
+	fnMap["darwin"] = wrapper("ps")
+	fnMap["sunos"] = wrapper("ps")
+	fnMap["freebsd"] = wrapper("ps")
+	fnMap["aix"] = wrapper("ps")
+	fnMap["linux"] = wrapper("proc")
+	fnMap["netbsd"] = wrapper("proc")
+	fnMap["win"] = wrapper("win")
 }
 func formatStdOut(stdout []byte, userfulIndex int) []string {
-	infoArr := strings.Split(string(stdout), "\n")[userfulIndex]
+	infoArr := strings.Split(string(stdout), eol)[userfulIndex]
 	ret := strings.Fields(infoArr)
 	return ret
 }
@@ -76,7 +78,7 @@ func stat(pid int, statType string) *SysInfo {
 		stdout, _ := exec.Command("ps", args, strconv.Itoa(pid)).Output()
 		ret := formatStdOut(stdout, 1)
 		sysInfo.CPU = parseFloat(ret[0])
-		sysInfo.Memory = parseFloat(ret[1])
+		sysInfo.Memory = parseFloat(ret[1]) * 1024
 	} else if statType == "proc" {
 		// default clkTck and pageSize
 		var clkTck float64 = 100
@@ -84,7 +86,6 @@ func stat(pid int, statType string) *SysInfo {
 
 		uptimeFileBytes, err := ioutil.ReadFile(path.Join("/proc", "uptime"))
 		uptime := parseFloat(strings.Split(string(uptimeFileBytes), " ")[0])
-		fmt.Println("uptime", uptime)
 
 		clkTckStdout, err := exec.Command("getconf", "CLK_TCK").Output()
 		if err == nil {
@@ -96,8 +97,6 @@ func stat(pid int, statType string) *SysInfo {
 			pageSize = parseFloat(formatStdOut(pageSizeStdout, 0)[0])
 		}
 
-		fmt.Println(clkTck, pageSize)
-		fmt.Println(path.Join("/proc", strconv.Itoa(pid), "stat"))
 		procStatFileBytes, err := ioutil.ReadFile(path.Join("/proc", strconv.Itoa(pid), "stat"))
 		infos := strings.Split(strings.SplitAfter(string(procStatFileBytes), ")")[1], " ")
 		stat := &Stat{
@@ -112,18 +111,18 @@ func stat(pid int, statType string) *SysInfo {
 
 		_stime := 0.0
 		_utime := 0.0
-		if _history.stime != 0.0 {
+		if _history.stime != 0 {
 			_stime = _history.stime
 		}
 
-		if _history.utime != 0.0 {
+		if _history.utime != 0 {
 			_utime = _history.utime
 		}
 		total := stat.stime - _stime + stat.utime - _utime
 		total = total / clkTck
 
 		seconds := stat.start - uptime
-		if _history.uptime != 0.0 {
+		if _history.uptime != 0 {
 			seconds = uptime - _history.uptime
 		}
 
@@ -133,7 +132,6 @@ func stat(pid int, statType string) *SysInfo {
 		}
 
 		history[pid] = *stat
-		fmt.Println(total)
 		sysInfo.CPU = (total / seconds) * 100
 		sysInfo.Memory = stat.rss * pageSize
 	}
@@ -141,12 +139,8 @@ func stat(pid int, statType string) *SysInfo {
 
 }
 
-// Stat will return current system CPU and memory data
-// func Stat(pid int) *SysInfo {
-// 	sysInfo := fnMap[platform](pid)
-// 	return sysInfo
-// }
-
-func main() {
-	stat(662, "proc")
+// GetStat will return current system CPU and memory data
+func GetStat(pid int) *SysInfo {
+	sysInfo := fnMap[platform](pid)
+	return sysInfo
 }
