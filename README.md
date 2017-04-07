@@ -28,7 +28,7 @@ Cpu usage does not check the child process tree!
 
 Memory result is representing the RSS (resident set size) only by doing `rss*pagesize`, where `pagesize` is the result of `getconf PAGE_SIZE`.
 
-### On darwin, freebsd, solaris (tested on 10/11)
+### On darwin, freebsd, solaris
 We use a fallback with the `ps -o pcpu,rss -p PID` command to get the same informations.
 
 Memory usage will also display the RSS only, process cpu usage might differ from a distribution to another. Please check the correspoding `man ps` for more insights on the subject.
