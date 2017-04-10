@@ -103,7 +103,8 @@ func stat(pid int, statType string) (*SysInfo, error) {
 
 		procStatFileBytes, err := ioutil.ReadFile(path.Join("/proc", strconv.Itoa(pid), "stat"))
 		splitAfter := strings.SplitAfter(string(procStatFileBytes), ")")
-		if len(splitAfter) == 0 {
+
+		if len(splitAfter) == 0 || len(splitAfter) == 1 {
 			return sysInfo, errors.New("can not foud this pid: " + strconv.Itoa(pid))
 		}
 		infos := strings.Split(splitAfter[1], " ")
