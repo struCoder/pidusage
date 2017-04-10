@@ -3,16 +3,19 @@ Cross-platform process cpu % and memory usage of a PID for golang
 
 Ideas from https://github.com/soyuka/pidusage but just use Golang
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/struCoder/pidusage)](https://goreportcard.com/report/github.com/struCoder/pidusage)
+[![GoDoc](https://godoc.org/github.com/struCoder/pidusage?status.svg)](https://godoc.org/github.com/struCoder/pidusage)
+
 ## API
 
 ```golang
 import (
   "os"
-	"github.com/struCoder/pmgo/lib/utils"
+	"github.com/struCoder/pidusage"
 )
 
 func printStat() {
-	sysInfo := pidusage.GetStat(os.Process.Pid)
+	sysInfo, err := pidusage.GetStat(os.Process.Pid)
 }
 ```
 
@@ -21,7 +24,7 @@ func printStat() {
 A check on the `runtime.GOOS` is done to determine the method to use.
 
 ### Linux
-We use `/proc/{pid}/stat` in addition to the the `PAGE_SIZE` and the `CLK_TCK` direclty from `getconf()` command. Uptime comes from `proc/uptime` file because it's more accurate than the nodejs `os.uptime()`.
+We use `/proc/{pid}/stat` in addition to the the `PAGE_SIZE` and the `CLK_TCK` direclty from `getconf()` command. Uptime comes from `proc/uptime`
 
 Cpu usage is computed by following [those instructions](http://stackoverflow.com/questions/16726779/how-do-i-get-the-total-cpu-usage-of-an-application-from-proc-pid-stat/16736599#16736599). It keeps an history of the current processor time for the given pid so that the computed value gets more and more accurate. Don't forget to do `unmonitor(pid)` so that history gets cleared.
 Cpu usage does not check the child process tree!

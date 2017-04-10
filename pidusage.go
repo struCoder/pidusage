@@ -1,6 +1,7 @@
 package pidusage
 
 import (
+	"errors"
 	"io/ioutil"
 	"math"
 	"os/exec"
@@ -27,15 +28,15 @@ type Stat struct {
 	uptime float64
 }
 
-type fn func(int) *SysInfo
+type fn func(int) (*SysInfo, error)
 
 var fnMap map[string]fn
 var platform string
 var history map[int]Stat
 var eol string
 
-func wrapper(statType string) func(pid int) *SysInfo {
-	return func(pid int) *SysInfo {
+func wrapper(statType string) func(pid int) (*SysInfo, error) {
+	return func(pid int) (*SysInfo, error) {
 		return stat(pid, statType)
 	}
 }
@@ -67,7 +68,7 @@ func parseFloat(val string) float64 {
 	return floatVal
 }
 
-func stat(pid int, statType string) *SysInfo {
+func stat(pid int, statType string) (*SysInfo, error) {
 	sysInfo := &SysInfo{}
 	_history := history[pid]
 	if statType == "ps" {
@@ -77,6 +78,9 @@ func stat(pid int, statType string) *SysInfo {
 		}
 		stdout, _ := exec.Command("ps", args, strconv.Itoa(pid)).Output()
 		ret := formatStdOut(stdout, 1)
+		if len(ret) == 0 {
+			return sysInfo, errors.New("can not foud this pid: " + strconv.Itoa(pid))
+		}
 		sysInfo.CPU = parseFloat(ret[0])
 		sysInfo.Memory = parseFloat(ret[1]) * 1024
 	} else if statType == "proc" {
@@ -98,7 +102,11 @@ func stat(pid int, statType string) *SysInfo {
 		}
 
 		procStatFileBytes, err := ioutil.ReadFile(path.Join("/proc", strconv.Itoa(pid), "stat"))
-		infos := strings.Split(strings.SplitAfter(string(procStatFileBytes), ")")[1], " ")
+		splitAfter := strings.SplitAfter(string(procStatFileBytes), ")")
+		if len(splitAfter) == 0 {
+			return sysInfo, errors.New("can not foud this pid: " + strconv.Itoa(pid))
+		}
+		infos := strings.Split(splitAfter[1], " ")
 		stat := &Stat{
 			utime:  parseFloat(infos[12]),
 			stime:  parseFloat(infos[13]),
@@ -135,12 +143,12 @@ func stat(pid int, statType string) *SysInfo {
 		sysInfo.CPU = (total / seconds) * 100
 		sysInfo.Memory = stat.rss * pageSize
 	}
-	return sysInfo
+	return sysInfo, nil
 
 }
 
 // GetStat will return current system CPU and memory data
-func GetStat(pid int) *SysInfo {
-	sysInfo := fnMap[platform](pid)
-	return sysInfo
+func GetStat(pid int) (*SysInfo, error) {
+	sysInfo, err := fnMap[platform](pid)
+	return sysInfo, err
 }
