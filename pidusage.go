@@ -17,7 +17,7 @@ type SysInfo struct {
 	Memory float64
 }
 
-// Stat will store CUP time struct
+// Stat will store CPU time struct
 type Stat struct {
 	utime  float64
 	stime  float64
@@ -42,8 +42,7 @@ func wrapper(statType string) func(pid int) (*SysInfo, error) {
 }
 func init() {
 	platform = runtime.GOOS
-	eol = "\n"
-	if strings.Index(platform, "win") == 0 {
+	if eol = "\n"; strings.Index(platform, "win") == 0 {
 		platform = "win"
 		eol = "\r\n"
 	}
@@ -79,7 +78,7 @@ func stat(pid int, statType string) (*SysInfo, error) {
 		stdout, _ := exec.Command("ps", args, strconv.Itoa(pid)).Output()
 		ret := formatStdOut(stdout, 1)
 		if len(ret) == 0 {
-			return sysInfo, errors.New("can not foud this pid: " + strconv.Itoa(pid))
+			return sysInfo, errors.New("Can't find process with this PID: " + strconv.Itoa(pid))
 		}
 		sysInfo.CPU = parseFloat(ret[0])
 		sysInfo.Memory = parseFloat(ret[1]) * 1024
@@ -105,7 +104,7 @@ func stat(pid int, statType string) (*SysInfo, error) {
 		splitAfter := strings.SplitAfter(string(procStatFileBytes), ")")
 
 		if len(splitAfter) == 0 || len(splitAfter) == 1 {
-			return sysInfo, errors.New("can not foud this pid: " + strconv.Itoa(pid))
+			return sysInfo, errors.New("Can't find process with this PID: " + strconv.Itoa(pid))
 		}
 		infos := strings.Split(splitAfter[1], " ")
 		stat := &Stat{
