@@ -1,6 +1,7 @@
 package pidusage
 
 import (
+	"os"
 	"errors"
 	"io/ioutil"
 	"math"
@@ -27,6 +28,8 @@ type Stat struct {
 	start  float64
 	rss    float64
 	uptime float64
+	kernelmodetime float64
+	usermodetime	float64
 }
 
 type fn func(int) (*SysInfo, error)
@@ -149,7 +152,15 @@ func stat(pid int, statType string) (*SysInfo, error) {
 		cmdArgs := strings.Fields(args)
 		output, _ := exec.Command(cmdArgs[0], cmdArgs[1:len(cmdArgs)]...).Output()
 		outputStr := string(output)
-		fmt.Println(strings.Fields(outputStr)[3:], "===sd")
+		strArr = strings.Fields(outputStr)[3:]
+		
+		kernelmodetime := strArr[0]
+		usermodetime := strArr[1]
+		workingsetsize := strArr[2]
+
+		total := kernelmodetime - (_history.kernelmodetime || 0) + usermodetime - (_history.usermodetime || 0)
+		total = total / 10000000
+
 	
 
 	}
