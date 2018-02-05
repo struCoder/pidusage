@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"fmt"
 )
 
 // SysInfo will record cpu and memory data
@@ -42,10 +43,10 @@ func wrapper(statType string) func(pid int) (*SysInfo, error) {
 }
 func init() {
 	platform = runtime.GOOS
-	if eol = "\n"; strings.Index(platform, "win") == 0 {
-		platform = "win"
-		eol = "\r\n"
-	}
+	// if eol = "\n"; strings.Index(platform, "win") == 0 {
+	// 	platform = "win"
+	// 	eol = "\r\n"
+	// }
 	history = make(map[int]Stat)
 	fnMap = make(map[string]fn)
 	fnMap["darwin"] = wrapper("ps")
@@ -55,6 +56,7 @@ func init() {
 	fnMap["linux"] = wrapper("proc")
 	fnMap["netbsd"] = wrapper("proc")
 	fnMap["win"] = wrapper("win")
+	fnMap["windows"] = wrapper("windows")
 }
 func formatStdOut(stdout []byte, userfulIndex int) []string {
 	infoArr := strings.Split(string(stdout), eol)[userfulIndex]
@@ -142,13 +144,20 @@ func stat(pid int, statType string) (*SysInfo, error) {
 		history[pid] = *stat
 		sysInfo.CPU = (total / seconds) * 100
 		sysInfo.Memory = stat.rss * pageSize
+	} else if statType == "windows" {
+		args := "wmic PROCESS " + strconv.Itoa(pid) + " get workingsetsize,usermodetime,kernelmodetime"
+		cmdArgs := strings.Fields(args)
+		output, _ := exec.Command(cmdArgs[0], cmdArgs[1:len(cmdArgs)]...).Output()
+		outputStr := string(output)
+		fmt.Println(strings.Fields(outputStr)[3:], "===sd")
+	
+
 	}
 	return sysInfo, nil
-
 }
 
 // GetStat will return current system CPU and memory data
 func GetStat(pid int) (*SysInfo, error) {
-	sysInfo, err := fnMap[platform](pid)
+	sysInfo, err := fnMap[platform](12320)
 	return sysInfo, err
 }
