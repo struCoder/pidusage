@@ -1,7 +1,6 @@
 package pidusage
 
 import (
-	"os"
 	"errors"
 	"io/ioutil"
 	"math"
@@ -10,7 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"fmt"
+	"time"
 )
 
 // SysInfo will record cpu and memory data
@@ -21,15 +20,15 @@ type SysInfo struct {
 
 // Stat will store CPU time struct
 type Stat struct {
-	utime  float64
-	stime  float64
-	cutime float64
-	cstime float64
-	start  float64
-	rss    float64
-	uptime float64
+	utime          float64
+	stime          float64
+	cutime         float64
+	cstime         float64
+	start          float64
+	rss            float64
+	uptime         float64
 	kernelmodetime float64
-	usermodetime	float64
+	usermodetime   float64
 }
 
 type fn func(int) (*SysInfo, error)
@@ -148,20 +147,42 @@ func stat(pid int, statType string) (*SysInfo, error) {
 		sysInfo.CPU = (total / seconds) * 100
 		sysInfo.Memory = stat.rss * pageSize
 	} else if statType == "windows" {
+		uptime := float64(time.Now().Unix())
 		args := "wmic PROCESS " + strconv.Itoa(pid) + " get workingsetsize,usermodetime,kernelmodetime"
 		cmdArgs := strings.Fields(args)
 		output, _ := exec.Command(cmdArgs[0], cmdArgs[1:len(cmdArgs)]...).Output()
 		outputStr := string(output)
-		strArr = strings.Fields(outputStr)[3:]
-		
-		kernelmodetime := strArr[0]
-		usermodetime := strArr[1]
-		workingsetsize := strArr[2]
+		strArr := strings.Fields(outputStr)[3:]
 
-		total := kernelmodetime - (_history.kernelmodetime || 0) + usermodetime - (_history.usermodetime || 0)
+		kernelmodetime := parseFloat(strArr[0])
+		usermodetime := parseFloat(strArr[1])
+		workingsetsize := parseFloat(strArr[2])
+
+		_kernelmodetime := 0.0
+		_usermodetime := 0.0
+		_uptime := 0.0
+		if _history.kernelmodetime != 0 {
+			_kernelmodetime = _history.kernelmodetime
+		}
+
+		if _history.usermodetime != 0 {
+			_usermodetime = _history.usermodetime
+		}
+
+		if _history.uptime != 0 {
+			_uptime = _history.uptime
+		}
+		total := kernelmodetime - _kernelmodetime + usermodetime - _usermodetime
 		total = total / 10000000
 
-	
+		// seconds :=
+		stat := &Stat{
+			kernelmodetime: kernelmodetime,
+			usermodetime:   usermodetime,
+			uptime:         uptime,
+		}
+
+		history[pid] = *stat
 
 	}
 	return sysInfo, nil
