@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // SysInfo will record cpu and memory data
@@ -33,6 +34,7 @@ type fn func(int) (*SysInfo, error)
 var fnMap map[string]fn
 var platform string
 var history map[int]Stat
+var historyLock sync.Mutex
 var eol string
 
 func wrapper(statType string) func(pid int) (*SysInfo, error) {
@@ -139,7 +141,9 @@ func stat(pid int, statType string) (*SysInfo, error) {
 			seconds = 1
 		}
 
+		historyLock.Lock()
 		history[pid] = *stat
+		historyLock.Unlock()
 		sysInfo.CPU = (total / seconds) * 100
 		sysInfo.Memory = stat.rss * pageSize
 	}
