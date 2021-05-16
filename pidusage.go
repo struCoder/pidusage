@@ -37,6 +37,10 @@ var history map[int]Stat
 var historyLock sync.Mutex
 var eol string
 
+// Linux platform
+var clkTck float64 = 100    // default
+var pageSize float64 = 4096 // default
+
 func wrapper(statType string) func(pid int) (*SysInfo, error) {
 	return func(pid int) (*SysInfo, error) {
 		return stat(pid, statType)
@@ -57,7 +61,25 @@ func init() {
 	fnMap["linux"] = wrapper("proc")
 	fnMap["netbsd"] = wrapper("proc")
 	fnMap["win"] = wrapper("win")
+
+	if platform == "linux" {
+		initLinux()
+	}
 }
+
+func initLinux() {
+	clkTckStdout, err := exec.Command("getconf", "CLK_TCK").Output()
+	if err == nil {
+		clkTck = parseFloat(formatStdOut(clkTckStdout, 0)[0])
+	}
+
+	pageSizeStdout, err := exec.Command("getconf", "PAGESIZE").Output()
+	if err == nil {
+		pageSize = parseFloat(formatStdOut(pageSizeStdout, 0)[0])
+	}
+
+}
+
 func formatStdOut(stdout []byte, userfulIndex int) []string {
 	infoArr := strings.Split(string(stdout), eol)[userfulIndex]
 	ret := strings.Fields(infoArr)
@@ -85,24 +107,16 @@ func stat(pid int, statType string) (*SysInfo, error) {
 		sysInfo.CPU = parseFloat(ret[0])
 		sysInfo.Memory = parseFloat(ret[1]) * 1024
 	} else if statType == "proc" {
-		// default clkTck and pageSize
-		var clkTck float64 = 100
-		var pageSize float64 = 4096
-
 		uptimeFileBytes, err := ioutil.ReadFile(path.Join("/proc", "uptime"))
+		if err != nil {
+			return nil, err
+		}
 		uptime := parseFloat(strings.Split(string(uptimeFileBytes), " ")[0])
 
-		clkTckStdout, err := exec.Command("getconf", "CLK_TCK").Output()
-		if err == nil {
-			clkTck = parseFloat(formatStdOut(clkTckStdout, 0)[0])
-		}
-
-		pageSizeStdout, err := exec.Command("getconf", "PAGESIZE").Output()
-		if err == nil {
-			pageSize = parseFloat(formatStdOut(pageSizeStdout, 0)[0])
-		}
-
 		procStatFileBytes, err := ioutil.ReadFile(path.Join("/proc", strconv.Itoa(pid), "stat"))
+		if err != nil {
+			return nil, err
+		}
 		splitAfter := strings.SplitAfter(string(procStatFileBytes), ")")
 
 		if len(splitAfter) == 0 || len(splitAfter) == 1 {
@@ -148,7 +162,6 @@ func stat(pid int, statType string) (*SysInfo, error) {
 		sysInfo.Memory = stat.rss * pageSize
 	}
 	return sysInfo, nil
-
 }
 
 // GetStat will return current system CPU and memory data
