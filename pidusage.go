@@ -58,12 +58,13 @@ func init() {
 	fnMap["darwin"] = wrapper("ps")
 	fnMap["sunos"] = wrapper("ps")
 	fnMap["freebsd"] = wrapper("ps")
+	fnMap["openbsd"] = wrapper("ps")
 	fnMap["aix"] = wrapper("ps")
 	fnMap["linux"] = wrapper("proc")
 	fnMap["netbsd"] = wrapper("proc")
 	fnMap["win"] = wrapper("win")
 
-	if platform == "linux" || platform == "netbsd" {
+	if platform == "linux" || platform == "netbsd" || platform == "openbsd" {
 		initProc()
 	}
 }
